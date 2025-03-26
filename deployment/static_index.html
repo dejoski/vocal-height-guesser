@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Height Guesser (Static Version)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f5f5f5;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .card-header {
+            background-color: #3498db;
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 15px 20px;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background-color: #3498db;
+            border-color: #3498db;
+        }
+        .btn-primary:hover {
+            background-color: #2980b9;
+            border-color: #2980b9;
+        }
+        .height-display {
+            font-size: 3rem;
+            font-weight: bold;
+            text-align: center;
+            color: #3498db;
+        }
+        .height-display-imperial {
+            font-size: 2.2rem;
+            font-weight: bold;
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+        }
+        .confidence-bar {
+            height: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+        .gender-toggle {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .gender-toggle .btn {
+            width: 120px;
+        }
+        .result-range {
+            font-size: 1.2rem;
+            text-align: center;
+            color: #7f8c8d;
+            margin-top: 10px;
+        }
+        .result-range-imperial {
+            font-size: 1.2rem;
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+        .loading {
+            text-align: center;
+            display: none;
+        }
+        .spinner-border {
+            width: 3rem; 
+            height: 3rem;
+        }
+        .frequency-example {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Voice Height Guesser</h1>
+        <p class="text-center mb-4">Enter your voice frequency to estimate your height</p>
+        
+        <div class="card">
+            <div class="card-header">
+                Voice Input
+            </div>
+            <div class="card-body">
+                <div class="gender-toggle" id="genderToggle">
+                    <div class="btn-group" role="group">
+                        <input type="radio" class="btn-check" name="gender" id="genderMale" value="male" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary" for="genderMale">Male</label>
+                        
+                        <input type="radio" class="btn-check" name="gender" id="genderFemale" value="female" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="genderFemale">Female</label>
+                        
+                        <input type="radio" class="btn-check" name="gender" id="genderAuto" value="auto" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="genderAuto">Auto</label>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="frequencyInput" class="form-label">Voice Frequency (Hz)</label>
+                    <input type="number" class="form-control" id="frequencyInput" placeholder="Enter frequency (Hz)" min="80" max="300" value="120">
+                    <div class="frequency-example">
+                        <p class="mb-0">Typical frequency ranges:</p>
+                        <ul>
+                            <li>Adult Male: 85-155 Hz (Average: ~120 Hz)</li>
+                            <li>Adult Female: 165-255 Hz (Average: ~210 Hz)</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary w-100" id="analyzeButton">Analyze Voice</button>
+            </div>
+        </div>
+        
+        <div class="loading" id="loadingIndicator">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Analyzing voice features...</p>
+        </div>
+        
+        <div class="card" id="resultCard" style="display: none;">
+            <div class="card-header">
+                Height Prediction Result
+            </div>
+            <div class="card-body">
+                <div class="height-display" id="heightResult">--</div>
+                <div class="height-display-imperial" id="heightResultImperial">--</div>
+                <div class="result-range" id="heightRange">Height range: -- to --</div>
+                <div class="result-range-imperial" id="heightRangeImperial">Height range: -- to --</div>
+                
+                <p class="mt-3 mb-2">Confidence Level</p>
+                <div class="progress confidence-bar">
+                    <div class="progress-bar" id="confidenceBar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <p class="text-center" id="confidenceText">--</p>
+                
+                <div class="alert alert-info mt-3">
+                    <p class="mb-0"><strong>Note:</strong> This is a demonstration based on general voice-height correlations. Actual height may vary.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const frequencyInput = document.getElementById('frequencyInput');
+            const analyzeButton = document.getElementById('analyzeButton');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const resultCard = document.getElementById('resultCard');
+            const heightResult = document.getElementById('heightResult');
+            const heightResultImperial = document.getElementById('heightResultImperial');
+            const heightRange = document.getElementById('heightRange');
+            const heightRangeImperial = document.getElementById('heightRangeImperial');
+            const confidenceBar = document.getElementById('confidenceBar');
+            const confidenceText = document.getElementById('confidenceText');
+            
+            // Auto-adjust frequency for gender selection
+            document.querySelectorAll('input[name="gender"]').forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'male') {
+                        frequencyInput.value = 120; // Default male frequency
+                    } else if (this.value === 'female') {
+                        frequencyInput.value = 210; // Default female frequency
+                    }
+                });
+            });
+            
+            // Handle analyze button
+            analyzeButton.addEventListener('click', function() {
+                const frequency = parseFloat(frequencyInput.value);
+                if (isNaN(frequency) || frequency <= 0) {
+                    alert('Please enter a valid frequency greater than 0 Hz');
+                    return;
+                }
+                
+                const gender = document.querySelector('input[name="gender"]:checked').value;
+                
+                // Show loading indicator
+                loadingIndicator.style.display = 'block';
+                resultCard.style.display = 'none';
+                
+                // In a static version, we can calculate the height directly
+                // or send to a serverless function if available
+                const formData = new FormData();
+                formData.append('frequency', frequency);
+                if (gender !== 'auto') {
+                    formData.append('gender', gender);
+                }
+                
+                // For demonstration, calculate locally or send to API
+                if (typeof calculateHeight === 'function') {
+                    // Use local calculation if function exists
+                    const result = calculateHeight(frequency, gender);
+                    displayResult(result);
+                } else {
+                    // Otherwise, try to use API endpoint
+                    fetch('/predict', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.error || 'An error occurred during analysis');
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        displayResult(data);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert(error.message || 'An error occurred during analysis');
+                        loadingIndicator.style.display = 'none';
+                    });
+                }
+            });
+            
+            function displayResult(data) {
+                // Update results
+                heightResult.textContent = `${data.height} ${data.unit}`;
+                heightRange.textContent = `Height range: ${data.lower_bound} to ${data.upper_bound} ${data.unit}`;
+                
+                // Update imperial results
+                heightResultImperial.textContent = data.imperial.height;
+                heightRangeImperial.textContent = `Height range: ${data.imperial.range}`;
+                
+                const confidencePercent = Math.round(data.confidence * 100);
+                confidenceBar.style.width = `${confidencePercent}%`;
+                confidenceText.textContent = `${confidencePercent}% confidence`;
+                
+                // Show results
+                resultCard.style.display = 'block';
+                loadingIndicator.style.display = 'none';
+            }
+            
+            // Optional: Local calculation function for fully static deployments
+            window.calculateHeight = function(frequency, gender) {
+                // Simplified height prediction for static sites
+                let baseHeight, minHeight, maxHeight, lowF0, highF0;
+                
+                // Determine gender
+                if (!gender || gender === 'auto') {
+                    gender = frequency < 160 ? 'male' : 'female';
+                }
+                
+                if (gender === 'male') {
+                    baseHeight = 177;
+                    minHeight = 164;
+                    maxHeight = 190;
+                    lowF0 = 85;
+                    highF0 = 155;
+                } else {
+                    baseHeight = 164;
+                    minHeight = 152;
+                    maxHeight = 176;
+                    lowF0 = 165;
+                    highF0 = 255;
+                }
+                
+                // Calculate height
+                let height = baseHeight;
+                if (frequency > 0) {
+                    // Normalize frequency
+                    const normF0 = Math.min(Math.max(frequency, lowF0), highF0);
+                    // Height modifier (inverse relationship)
+                    const mod = (highF0 - normF0) / (highF0 - lowF0) * (gender === 'male' ? 13 : 12);
+                    height = baseHeight + mod - (gender === 'male' ? 6.5 : 6);
+                }
+                
+                // Ensure in range
+                height = Math.min(Math.max(height, minHeight), maxHeight);
+                
+                // Calculate confidence
+                const distanceFromAvg = Math.abs(height - baseHeight) / (maxHeight - minHeight);
+                const confidence = Math.max(0.5, 1 - distanceFromAvg);
+                
+                // Create range
+                const rangeWidth = (1 - confidence) * 14 + 2;
+                const lowerBound = Math.round((height - rangeWidth / 2) * 10) / 10;
+                const upperBound = Math.round((height + rangeWidth / 2) * 10) / 10;
+                height = Math.round(height * 10) / 10;
+                
+                // Convert to imperial
+                const inchesTotal = height / 2.54;
+                const feet = Math.floor(inchesTotal / 12);
+                const inches = Math.round((inchesTotal % 12) * 10) / 10;
+                
+                const lowerInchesTotal = lowerBound / 2.54;
+                const lowerFeet = Math.floor(lowerInchesTotal / 12);
+                const lowerInches = Math.round((lowerInchesTotal % 12) * 10) / 10;
+                
+                const upperInchesTotal = upperBound / 2.54;
+                const upperFeet = Math.floor(upperInchesTotal / 12);
+                const upperInches = Math.round((upperInchesTotal % 12) * 10) / 10;
+                
+                return {
+                    height: height,
+                    lower_bound: lowerBound,
+                    upper_bound: upperBound,
+                    confidence: Math.round(confidence * 100) / 100,
+                    unit: 'cm',
+                    imperial: {
+                        height: `${feet}'${inches}"`,
+                        total_inches: Math.round(inchesTotal * 10) / 10,
+                        range: `${lowerFeet}'${lowerInches}" - ${upperFeet}'${upperInches}"`
+                    }
+                };
+            };
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html> 

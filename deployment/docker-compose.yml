@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  height-guesser:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../height_guesser:/app/height_guesser
+    environment:
+      - FLASK_ENV=production
+      - UPLOAD_FOLDER=/tmp/height_guesser_uploads 

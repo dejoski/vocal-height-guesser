@@ -1,0 +1,1 @@
+web: cd height_guesser && gunicorn wsgi:app 
