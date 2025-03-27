@@ -6,21 +6,24 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     libsndfile1 \
     ffmpeg \
+    build-essential \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Copy the application code
-COPY height_guesser/ ./height_guesser/
+COPY . .
 
 # Set the environment variables
 ENV PYTHONPATH=/app
 ENV FLASK_APP=height_guesser/app.py
+ENV PORT=5000
 
 # Expose the port the app runs on
-EXPOSE 5000
+EXPOSE ${PORT}
 
 # Command to run the application
-CMD ["python", "height_guesser/app.py"] 
+CMD gunicorn --bind 0.0.0.0:${PORT} height_guesser.app:app 
