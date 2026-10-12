@@ -7,7 +7,7 @@ import soundfile as sf
 import numpy as np
 import io
 
-from feature_extractor import extract_features
+from feature_extractor import extract_features, MAX_AUDIO_BYTES
 from height_predictor import HeightPredictor
 
 app = Flask(__name__)
@@ -15,7 +15,7 @@ app = Flask(__name__)
 # For Vercel deployment, use /tmp directory which is writable in serverless environments
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', os.path.join('/tmp', 'height_guesser_uploads'))
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
+app.config['MAX_CONTENT_LENGTH'] = MAX_AUDIO_BYTES + 64 * 1024  # multipart overhead; audio itself capped at 4 MiB
 
 # Create upload folder if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -59,6 +59,8 @@ def predict_height():
     file.save(filepath)
     
     try:
+        if os.path.getsize(filepath) > MAX_AUDIO_BYTES:
+            return jsonify({'error': 'Audio upload must be 4 MiB or smaller'}), 413
         # Extract features
         features = extract_features(filepath)
         
@@ -91,26 +93,21 @@ def predict_height():
             }
         }
         
-        # Clean up the temporary file
-        try:
-            os.remove(filepath)
-        except:
-            # Ignore errors removing temp files in serverless environments
-            pass
-        
         return jsonify(result)
     
-    except Exception as e:
-        # Clean up the temporary file if it exists
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception:
+        return jsonify({'error': 'Could not process this audio file'}), 500
+    finally:
         try:
-            if os.path.exists(filepath):
-                os.remove(filepath)
-        except:
-            # Ignore errors removing temp files in serverless environments
+            os.remove(filepath)
+        except OSError:
             pass
-        
-        # Return error
-        return jsonify({'error': str(e)}), 500
+
+@app.errorhandler(413)
+def oversized_upload(error):
+    return jsonify({'error': 'Audio upload must be 4 MiB or smaller'}), 413
 
 if __name__ == '__main__':
     app.run(debug=True)

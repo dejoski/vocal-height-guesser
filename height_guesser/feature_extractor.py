@@ -2,6 +2,27 @@ import numpy as np
 import os
 import warnings
 
+MAX_AUDIO_BYTES = 4 * 1024 * 1024
+MAX_AUDIO_SECONDS = 10
+ANALYSIS_SAMPLE_RATE = 16000
+
+
+def load_bounded_audio(audio_path):
+    """Analyze only the first ten seconds at a fixed mono sample rate.
+
+    duration bounds decoding before resampling/feature extraction, including
+    the audioread fallback needed for browser WebM recordings.
+    """
+    if os.path.getsize(audio_path) > MAX_AUDIO_BYTES:
+        raise ValueError("Audio upload must be 4 MiB or smaller")
+    y, sr = librosa.load(audio_path, sr=ANALYSIS_SAMPLE_RATE, mono=True,
+                         duration=MAX_AUDIO_SECONDS)
+    if sr != ANALYSIS_SAMPLE_RATE or y.ndim != 1 or len(y) > sr * MAX_AUDIO_SECONDS:
+        raise ValueError("Audio decoder exceeded analysis limits")
+    if not len(y) or not np.isfinite(y).all():
+        raise ValueError("Audio is empty or invalid")
+    return y, sr
+
 # Handle librosa import for deployment environments
 try:
     import librosa
@@ -39,7 +60,7 @@ def extract_features(audio_path, n_mfcc=13, n_mels=40):
         }
     
     # Load audio file with librosa
-    y, sr = librosa.load(audio_path, sr=None)
+    y, sr = load_bounded_audio(audio_path)
     
     # Make sure audio is at least 1 second for reliable feature extraction
     if len(y) < sr:
