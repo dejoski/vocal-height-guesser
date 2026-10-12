@@ -4,12 +4,27 @@
     {
       "src": "height_guesser/app.py",
       "use": "@vercel/python"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "height_guesser/app.py"
+      "src": "/",
+      "dest": "/public/index.html"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/predict",
+      "dest": "height_guesser/app.py",
+      "methods": [
+        "POST"
+      ]
     }
   ]
-} 
+}
+
