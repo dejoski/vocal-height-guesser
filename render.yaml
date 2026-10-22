@@ -6,4 +6,4 @@ services:
     startCommand: gunicorn height_guesser.app:app
     envVars:
       - key: PYTHON_VERSION
-        value: 3.9 
+        value: "3.12" 
